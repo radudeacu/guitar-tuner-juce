@@ -15,18 +15,6 @@ cmake --build build --config Debug
 
 If you already cloned without `--recurse-submodules`, run `git submodule update --init` first.
 
-## ASIO support (optional)
+## ASIO support
 
-JUCE's ASIO support requires the Steinberg ASIO SDK, which cannot be redistributed due to licensing and isn't bundled here. Without it, the app builds and runs using WASAPI/DirectSound.
-
-To enable ASIO (e.g. for a Focusrite Scarlett interface):
-
-1. Download the ASIO SDK from Steinberg (https://www.steinberg.net/developers/) — requires agreeing to their license.
-2. Unzip it somewhere, e.g. `C:/asiosdk`.
-3. Reconfigure with the SDK path:
-   ```bash
-   cmake -B build -G "Visual Studio 17 2022" -DASIO_SDK_PATH="C:/asiosdk"
-   cmake --build build --config Debug
-   ```
-
-Once configured, ASIO-compatible drivers (e.g. "Focusrite USB ASIO") will appear in the app's audio device selector automatically — no source changes needed.
+Enabled by default (`JUCE_ASIO=1`). JUCE 8.0.11+ bundles the minimal ASIO SDK headers it needs internally, so no separate Steinberg SDK download is required. ASIO-compatible drivers (e.g. "Focusrite USB ASIO") appear automatically in the app's audio device selector.

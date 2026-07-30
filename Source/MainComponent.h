@@ -24,6 +24,7 @@ public:
 private:
     void timerCallback() override;
     void appendToCaptureBuffer (const float* samples, int numSamples); // audio thread only
+    void showAudioSettings();
 
     static constexpr int windowSize = 2048;
     static constexpr int hopSize = 512;
@@ -40,6 +41,7 @@ private:
     std::atomic<float> latestConfidence  { 0.0f };
     std::atomic<bool>  signalPresent     { false };
 
+    juce::TextButton optionsButton { "Options" };
     juce::AudioDeviceSelectorComponent audioSettings;
     TunerDisplayComponent tunerDisplay;
 };

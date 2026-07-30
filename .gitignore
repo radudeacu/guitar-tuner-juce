@@ -1,0 +1,8 @@
+.claude/
+build/
+build-*/
+out/
+*.user
+*.vcxproj.user
+.vs/
+CMakeUserPresets.json

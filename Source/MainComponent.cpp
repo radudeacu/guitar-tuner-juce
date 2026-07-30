@@ -9,7 +9,9 @@ MainComponent::MainComponent()
                      true,     // showChannelsAsStereoPairs
                      false)    // hideAdvancedOptionsWithButton
 {
-    addAndMakeVisible (audioSettings);
+    addAndMakeVisible (optionsButton);
+    optionsButton.onClick = [this] { showAudioSettings(); };
+
     addAndMakeVisible (tunerDisplay);
 
     setAudioChannels (1, 0);
@@ -82,9 +84,25 @@ void MainComponent::timerCallback()
     tunerDisplay.setResult (match, frequencyHz, hasSignal);
 }
 
+void MainComponent::showAudioSettings()
+{
+    audioSettings.setSize (500, 450);
+
+    juce::DialogWindow::LaunchOptions options;
+    options.content.setNonOwned (&audioSettings);
+    options.dialogTitle = "Audio Settings";
+    options.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
+    options.escapeKeyTriggersCloseButton = true;
+    options.useNativeTitleBar = true;
+    options.resizable = true;
+
+    options.launchAsync();
+}
+
 void MainComponent::resized()
 {
     auto bounds = getLocalBounds();
-    tunerDisplay.setBounds (bounds.removeFromTop (300));
-    audioSettings.setBounds (bounds);
+    auto headerBounds = bounds.removeFromTop (40);
+    optionsButton.setBounds (headerBounds.removeFromLeft (100).reduced (5));
+    tunerDisplay.setBounds (bounds);
 }

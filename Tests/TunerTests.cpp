@@ -1,4 +1,5 @@
 #include "../Source/PitchDetector.h"
+#include "../Source/PluckedString.h"
 #include "../Source/ReferenceTonePlayer.h"
 
 #include <juce_core/juce_core.h>
@@ -101,6 +102,16 @@ namespace
         return largest;
     }
 
+    float loudestSample (const std::vector<float>& samples)
+    {
+        float loudest = 0.0f;
+
+        for (const auto sample : samples)
+            loudest = juce::jmax (loudest, std::abs (sample));
+
+        return loudest;
+    }
+
     void testReferenceTonePitch()
     {
         constexpr double toneFrequencyHz = 110.0;
@@ -108,53 +119,126 @@ namespace
         ReferenceTonePlayer player;
         player.prepare (sampleRate, toneBlockSize);
         player.setFrequency (toneFrequencyHz);
-        player.setPlaying (true);
+        player.pluck();
 
-        const auto rendered = renderTone (player, 40);
+        // Analyse just after the attack, while the note is still at full strength.
+        const auto rendered = renderTone (player, 8);
 
-        // Analyse a window from the end, well clear of the gain ramp.
         PitchDetector detector;
         detector.prepare (sampleRate, windowSize);
-        const auto result = detector.detectPitch (rendered.data() + rendered.size() - windowSize, windowSize);
+        const auto result = detector.detectPitch (rendered.data() + 512, windowSize);
 
-        expectTrue ("Reference tone: pitch detected", result.pitchFound);
+        expectTrue ("Plucked tone: pitch detected", result.pitchFound);
 
+        // A tuning reference has to be exactly on pitch despite the added harmonics.
         if (result.pitchFound)
-            expectNear ("Reference tone: frequency", result.frequencyHz, toneFrequencyHz, 0.5);
+            expectNear ("Plucked tone: fundamental is exact", result.frequencyHz, toneFrequencyHz, 0.2);
     }
 
-    void testReferenceToneRampsWithoutClicks()
+    void testPluckIsHarmonicallyRich()
+    {
+        PluckedString string;
+        string.prepare (sampleRate);
+        string.setFrequency (110.0);
+        string.pluck();
+
+        // A pure sine never exceeds its own amplitude; summed partials reinforce, so a
+        // crest factor well above a sine's 1.41 shows real harmonic content.
+        double sumOfSquares = 0.0;
+        float peak = 0.0f;
+        constexpr int numSamples = 4096;
+
+        for (int i = 0; i < numSamples; ++i)
+        {
+            const float sample = string.renderSample();
+            sumOfSquares += (double) sample * sample;
+            peak = juce::jmax (peak, std::abs (sample));
+        }
+
+        const double rms = std::sqrt (sumOfSquares / numSamples);
+        expectTrue ("Plucked tone: richer than a sine", rms > 0.0 && (peak / rms) > 1.8);
+    }
+
+    void testPluckDecaysToSilence()
+    {
+        PluckedString string;
+        string.prepare (sampleRate);
+        string.setFrequency (110.0);
+        string.pluck();
+
+        // Six seconds is comfortably longer than the note should ring for.
+        for (int i = 0; i < (int) (sampleRate * 6.0); ++i)
+            string.renderSample();
+
+        expectTrue ("Plucked tone: stops ringing on its own", ! string.isRinging());
+    }
+
+    /*  A click is a step comparable to the signal's own amplitude. Harmonic content legitimately
+        raises the sample-to-sample slope — the highest partial here moves about 14% of peak per
+        sample — so the check is relative to peak rather than an absolute figure calibrated for
+        a sine. A true discontinuity would approach 100%.
+    */
+    void expectNoClick (const char* testName, const std::vector<float>& samples)
+    {
+        const float peak = loudestSample (samples);
+        const float jump = largestSampleToSampleJump (samples);
+        const float ratio = peak > 0.0f ? jump / peak : 0.0f;
+
+        std::printf ("      (peak %.3f, largest jump %.3f, ratio %.2f)\n", peak, jump, ratio);
+        expectTrue (testName, peak > 0.0f && ratio < 0.30f);
+    }
+
+    void testReferenceToneStartsWithoutClick()
     {
         ReferenceTonePlayer player;
         player.prepare (sampleRate, toneBlockSize);
         player.setFrequency (110.0);
-        player.setPlaying (true);
+        player.pluck();
 
-        const auto rendered = renderTone (player, 20);
-
-        // A 110Hz sine at this amplitude moves ~0.003 per sample; an ungated start would jump
-        // by roughly the full amplitude, so anything above 0.01 means a click.
-        expectTrue ("Reference tone: starts without a click", largestSampleToSampleJump (rendered) < 0.01f);
+        expectNoClick ("Plucked tone: starts without a click", renderTone (player, 20));
     }
 
-    void testReferenceToneStopsSilently()
+    void testRetriggerDoesNotClick()
     {
         ReferenceTonePlayer player;
         player.prepare (sampleRate, toneBlockSize);
         player.setFrequency (110.0);
-        player.setPlaying (true);
-        renderTone (player, 10);
+        player.pluck();
+        renderTone (player, 4); // let it ring
 
-        player.setPlaying (false);
-        renderTone (player, 10); // let the gain ramp complete
+        player.pluck(); // interrupt mid-ring — the fade should absorb the discontinuity
+        expectNoClick ("Plucked tone: re-plucking mid-ring does not click", renderTone (player, 8));
+    }
 
-        const auto afterStop = renderTone (player, 4);
-        float loudest = 0.0f;
+    void testLoopingRepeatsAfterDecay()
+    {
+        ReferenceTonePlayer player;
+        player.prepare (sampleRate, toneBlockSize);
+        player.setFrequency (110.0);
+        player.setLooping (true);
+        player.pluck();
 
-        for (const auto sample : afterStop)
-            loudest = juce::jmax (loudest, std::abs (sample));
+        // Render well past a single note's decay; looping should have re-plucked by then.
+        const int blocksForEightSeconds = (int) (sampleRate * 8.0) / toneBlockSize;
+        renderTone (player, blocksForEightSeconds);
 
-        expectTrue ("Reference tone: fully silent after stopping", loudest == 0.0f);
+        const auto later = renderTone (player, 8);
+        expectTrue ("Plucked tone: keeps sounding while looping", loudestSample (later) > 0.001f);
+    }
+
+    void testNotLoopingFallsSilent()
+    {
+        ReferenceTonePlayer player;
+        player.prepare (sampleRate, toneBlockSize);
+        player.setFrequency (110.0);
+        player.setLooping (false);
+        player.pluck();
+
+        const int blocksForEightSeconds = (int) (sampleRate * 8.0) / toneBlockSize;
+        renderTone (player, blocksForEightSeconds);
+
+        const auto later = renderTone (player, 8);
+        expectTrue ("Plucked tone: one-shot falls silent", loudestSample (later) == 0.0f);
     }
 }
 
@@ -180,8 +264,12 @@ int main()
     }
 
     testReferenceTonePitch();
-    testReferenceToneRampsWithoutClicks();
-    testReferenceToneStopsSilently();
+    testPluckIsHarmonicallyRich();
+    testPluckDecaysToSilence();
+    testReferenceToneStartsWithoutClick();
+    testRetriggerDoesNotClick();
+    testLoopingRepeatsAfterDecay();
+    testNotLoopingFallsSilent();
 
     {
         // Sanity check that the test harness itself can fail: a deliberately wrong expectation must be reported as FAIL.

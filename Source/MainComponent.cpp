@@ -26,11 +26,18 @@ MainComponent::MainComponent()
     };
 
     referenceToneBar.setTuning (tuningEngine.getTuning());
-    referenceToneBar.onStringToggled = [this] (int stringIndex)
+
+    referenceToneBar.onStringSelected = [this] (int stringIndex)
     {
-        updateReferenceToneFrequency();
-        referenceTonePlayer.setPlaying (stringIndex >= 0);
+        referenceTonePlayer.setFrequency (tuningEngine.getStringFrequencyHz (stringIndex));
+        referenceTonePlayer.pluck();
     };
+
+    referenceToneBar.onLoopToggled = [this] (bool shouldLoop)
+    {
+        referenceTonePlayer.setLooping (shouldLoop);
+    };
+
     addAndMakeVisible (referenceToneBar);
 
     addAndMakeVisible (tunerDisplay);
@@ -189,7 +196,7 @@ void MainComponent::resized()
 
     bounds.removeFromTop (Theme::Spacing::sm);
 
-    referenceToneBar.setBounds (bounds.removeFromBottom (76));
+    referenceToneBar.setBounds (bounds.removeFromBottom (84));
     bounds.removeFromBottom (Theme::Spacing::sm);
 
     tunerDisplay.setBounds (bounds);

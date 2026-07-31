@@ -10,6 +10,20 @@ ReferenceToneBar::ReferenceToneBar()
         button.onClick = [this, i] { handleButtonClick (i); };
         addAndMakeVisible (button);
     }
+
+    loopButton.setClickingTogglesState (true);
+    loopButton.setTooltip ("Re-pluck the note each time it finishes ringing");
+    loopButton.onClick = [this]
+    {
+        if (onLoopToggled != nullptr)
+            onLoopToggled (loopButton.getToggleState());
+    };
+    addAndMakeVisible (loopButton);
+}
+
+bool ReferenceToneBar::isLooping() const noexcept
+{
+    return loopButton.getToggleState();
 }
 
 void ReferenceToneBar::setTuning (const Tuning& tuning)
@@ -22,12 +36,12 @@ void ReferenceToneBar::setTuning (const Tuning& tuning)
 
 void ReferenceToneBar::handleButtonClick (int stringIndex)
 {
-    const int requested = (stringIndex == activeStringIndex) ? -1 : stringIndex;
+    // Always sounds the note, including when the same string is clicked again — the note is
+    // one-shot, so re-clicking means "play it again" rather than "stop".
+    setActiveString (stringIndex);
 
-    setActiveString (requested);
-
-    if (onStringToggled != nullptr)
-        onStringToggled (requested);
+    if (onStringSelected != nullptr)
+        onStringSelected (stringIndex);
 }
 
 void ReferenceToneBar::setActiveString (int stringIndex)
@@ -48,7 +62,7 @@ void ReferenceToneBar::paint (juce::Graphics& g)
     g.setColour (Theme::Colours::textDim);
     g.setFont (Theme::labelFont (12.0f));
     g.drawText ("REFERENCE TONE",
-                getLocalBounds().removeFromTop (16),
+                getLocalBounds().removeFromTop (22),
                 juce::Justification::centred,
                 false);
 }
@@ -56,7 +70,11 @@ void ReferenceToneBar::paint (juce::Graphics& g)
 void ReferenceToneBar::resized()
 {
     auto bounds = getLocalBounds();
-    bounds.removeFromTop (20); // caption
+
+    auto captionRow = bounds.removeFromTop (22);
+    loopButton.setBounds (captionRow.removeFromRight (74).withSizeKeepingCentre (74, 22));
+
+    bounds.removeFromTop (Theme::Spacing::xs);
 
     const int gap = Theme::Spacing::xs;
     const int totalGaps = gap * ((int) stringButtons.size() - 1);

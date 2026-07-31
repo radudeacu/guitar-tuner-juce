@@ -20,11 +20,15 @@ public:
     /** Relabels the buttons for a tuning. */
     void setTuning (const Tuning& tuning);
 
-    /** Index of the string the user toggled, or -1 when they turned the current one off. */
-    std::function<void (int)> onStringToggled;
+    /** Index of the string the user asked to hear. Clicking always sounds a note. */
+    std::function<void (int)> onStringSelected;
+
+    /** Whether repeated plucking was switched on or off. */
+    std::function<void (bool)> onLoopToggled;
 
     void setActiveString (int stringIndex);
     int getActiveString() const noexcept;
+    bool isLooping() const noexcept;
 
     void paint (juce::Graphics& g) override;
     void resized() override;
@@ -33,5 +37,6 @@ private:
     void handleButtonClick (int stringIndex);
 
     std::array<juce::TextButton, 6> stringButtons;
+    juce::TextButton loopButton { "Loop" };
     int activeStringIndex = -1;
 };

@@ -20,6 +20,22 @@ void TuningEngine::setReferenceA4 (double newReferenceHz)
     referenceA4 = newReferenceHz;
 }
 
+const Tuning& TuningEngine::getTuning() const noexcept
+{
+    return currentTuning;
+}
+
+double TuningEngine::getStringFrequencyHz (int stringIndex) const
+{
+    const auto& strings = currentTuning.getStrings();
+
+    if (! juce::isPositiveAndBelow (stringIndex, (int) strings.size()))
+        return 0.0;
+
+    // Preset frequencies are baked at A4 = 440Hz, so the whole tuning scales with the reference.
+    return strings[(size_t) stringIndex].frequencyHz * (referenceA4 / 440.0);
+}
+
 int TuningEngine::findNearestStringIndex (double frequencyHz) const
 {
     int bestIndex = 0;
@@ -29,7 +45,7 @@ int TuningEngine::findNearestStringIndex (double frequencyHz) const
 
     for (int i = 0; i < (int) strings.size(); ++i)
     {
-        const double targetFrequencyHz = strings[(size_t) i].frequencyHz * (referenceA4 / 440.0);
+        const double targetFrequencyHz = getStringFrequencyHz (i);
         const double absCents = std::abs (PitchMath::frequencyToCents (frequencyHz, targetFrequencyHz));
 
         if (absCents < bestAbsCents)
@@ -51,7 +67,7 @@ TuningMatchResult TuningEngine::evaluate (double detectedFrequencyHz) const
 
     const int index = findNearestStringIndex (detectedFrequencyHz);
     const auto& target = currentTuning.getStrings()[(size_t) index];
-    const double targetFrequencyHz = target.frequencyHz * (referenceA4 / 440.0);
+    const double targetFrequencyHz = getStringFrequencyHz (index);
 
     result.noteName = target.noteName;
     result.targetFrequencyHz = targetFrequencyHz;

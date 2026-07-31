@@ -7,6 +7,8 @@
 
 #include "OptionsPanel.h"
 #include "PitchDetector.h"
+#include "ReferenceToneBar.h"
+#include "ReferenceTonePlayer.h"
 #include "TunerDisplayComponent.h"
 #include "TuningEngine.h"
 
@@ -28,6 +30,7 @@ private:
     void appendToCaptureBuffer (const float* samples, int numSamples); // audio thread only
     void showOptions();
     void applySelectedTuning();
+    void updateReferenceToneFrequency();
     void refreshBackdropCacheIfNeeded();
 
     static constexpr int windowSize = 2048;
@@ -35,6 +38,7 @@ private:
 
     PitchDetector pitchDetector;
     TuningEngine tuningEngine;
+    ReferenceTonePlayer referenceTonePlayer;
 
     std::vector<float> ringBuffer;
     std::vector<float> analysisScratch;
@@ -57,4 +61,5 @@ private:
     juce::ComboBox tuningSelector;
     OptionsPanel optionsPanel;
     TunerDisplayComponent tunerDisplay;
+    ReferenceToneBar referenceToneBar;
 };

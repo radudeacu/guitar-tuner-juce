@@ -19,7 +19,9 @@ target_sources(GuitarTuner
         Source/TunerDisplayComponent.cpp
         Source/GlassStyle.cpp
         Source/TunerLookAndFeel.cpp
-        Source/OptionsPanel.cpp)
+        Source/OptionsPanel.cpp
+        Source/ReferenceTonePlayer.cpp
+        Source/ReferenceToneBar.cpp)
 
 target_compile_definitions(GuitarTuner
     PRIVATE
@@ -42,18 +44,19 @@ target_link_libraries(GuitarTuner
         juce::juce_recommended_lto_flags
         juce::juce_recommended_warning_flags)
 
-# --- PitchDetector unit tests: standalone console app, no third-party test framework ---
-juce_add_console_app(PitchDetectorTests
-    PRODUCT_NAME "PitchDetectorTests")
+# --- Unit tests: standalone console app, no third-party test framework ---
+juce_add_console_app(TunerTests
+    PRODUCT_NAME "TunerTests")
 
-target_sources(PitchDetectorTests
+target_sources(TunerTests
     PRIVATE
         Source/PitchDetector.cpp
-        Tests/PitchDetectorTests.cpp)
+        Source/ReferenceTonePlayer.cpp
+        Tests/TunerTests.cpp)
 
-target_link_libraries(PitchDetectorTests
+target_link_libraries(TunerTests
     PRIVATE
-        juce::juce_core
+        juce::juce_dsp
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags)

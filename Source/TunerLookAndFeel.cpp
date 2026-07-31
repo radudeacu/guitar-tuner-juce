@@ -45,6 +45,16 @@ void TunerLookAndFeel::drawButtonBackground (juce::Graphics& g,
 
     GlassStyle::paintSurface (g, bounds, Theme::Radius::control, shouldDrawAsHighlighted);
 
+    // An active toggle glows from within, so "this one is sounding" reads at a glance.
+    if (button.getToggleState())
+    {
+        g.setColour (Theme::Colours::inTune.withAlpha (0.28f));
+        g.fillRoundedRectangle (bounds, Theme::Radius::control);
+
+        g.setColour (Theme::Colours::inTune.withAlpha (0.75f));
+        g.drawRoundedRectangle (bounds, Theme::Radius::control, 1.4f);
+    }
+
     // Pressing dims rather than shifts hue, keeping the glass reading intact.
     if (shouldDrawAsDown)
     {

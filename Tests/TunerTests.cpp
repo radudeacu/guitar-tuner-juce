@@ -1,4 +1,5 @@
 #include "../Source/PitchDetector.h"
+#include "../Source/ReferenceTonePlayer.h"
 
 #include <juce_core/juce_core.h>
 
@@ -69,9 +70,97 @@ namespace
     }
 }
 
+namespace
+{
+    constexpr int toneBlockSize = 512;
+
+    std::vector<float> renderTone (ReferenceTonePlayer& player, int numBlocks)
+    {
+        juce::AudioBuffer<float> buffer (1, toneBlockSize);
+        std::vector<float> rendered;
+
+        for (int block = 0; block < numBlocks; ++block)
+        {
+            buffer.clear();
+            player.renderNextBlock (buffer, 0, toneBlockSize);
+
+            const float* data = buffer.getReadPointer (0);
+            rendered.insert (rendered.end(), data, data + toneBlockSize);
+        }
+
+        return rendered;
+    }
+
+    float largestSampleToSampleJump (const std::vector<float>& samples)
+    {
+        float largest = 0.0f;
+
+        for (size_t i = 1; i < samples.size(); ++i)
+            largest = juce::jmax (largest, std::abs (samples[i] - samples[i - 1]));
+
+        return largest;
+    }
+
+    void testReferenceTonePitch()
+    {
+        constexpr double toneFrequencyHz = 110.0;
+
+        ReferenceTonePlayer player;
+        player.prepare (sampleRate, toneBlockSize);
+        player.setFrequency (toneFrequencyHz);
+        player.setPlaying (true);
+
+        const auto rendered = renderTone (player, 40);
+
+        // Analyse a window from the end, well clear of the gain ramp.
+        PitchDetector detector;
+        detector.prepare (sampleRate, windowSize);
+        const auto result = detector.detectPitch (rendered.data() + rendered.size() - windowSize, windowSize);
+
+        expectTrue ("Reference tone: pitch detected", result.pitchFound);
+
+        if (result.pitchFound)
+            expectNear ("Reference tone: frequency", result.frequencyHz, toneFrequencyHz, 0.5);
+    }
+
+    void testReferenceToneRampsWithoutClicks()
+    {
+        ReferenceTonePlayer player;
+        player.prepare (sampleRate, toneBlockSize);
+        player.setFrequency (110.0);
+        player.setPlaying (true);
+
+        const auto rendered = renderTone (player, 20);
+
+        // A 110Hz sine at this amplitude moves ~0.003 per sample; an ungated start would jump
+        // by roughly the full amplitude, so anything above 0.01 means a click.
+        expectTrue ("Reference tone: starts without a click", largestSampleToSampleJump (rendered) < 0.01f);
+    }
+
+    void testReferenceToneStopsSilently()
+    {
+        ReferenceTonePlayer player;
+        player.prepare (sampleRate, toneBlockSize);
+        player.setFrequency (110.0);
+        player.setPlaying (true);
+        renderTone (player, 10);
+
+        player.setPlaying (false);
+        renderTone (player, 10); // let the gain ramp complete
+
+        const auto afterStop = renderTone (player, 4);
+        float loudest = 0.0f;
+
+        for (const auto sample : afterStop)
+            loudest = juce::jmax (loudest, std::abs (sample));
+
+        expectTrue ("Reference tone: fully silent after stopping", loudest == 0.0f);
+    }
+}
+
 int main()
 {
-    std::printf ("Running PitchDetector tests...\n\n");
+    std::printf ("Running tuner tests...\n\n");
 
     testKnownFrequency ("E2 (low E)", 82.41);
     testKnownFrequency ("A2", 110.00);
@@ -89,6 +178,10 @@ int main()
 
         expectTrue ("Silence: no pitch found", ! result.pitchFound);
     }
+
+    testReferenceTonePitch();
+    testReferenceToneRampsWithoutClicks();
+    testReferenceToneStopsSilently();
 
     {
         // Sanity check that the test harness itself can fail: a deliberately wrong expectation must be reported as FAIL.

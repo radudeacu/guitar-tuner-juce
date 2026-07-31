@@ -5,7 +5,7 @@
 OptionsPanel::OptionsPanel (juce::AudioDeviceManager& deviceManagerToUse)
     : audioSettings (deviceManagerToUse,
                      1, 1,     // min/max audio input channels
-                     0, 0,     // min/max audio output channels
+                     0, 2,     // min/max audio output channels — outputs carry the reference tone
                      false,    // showMidiInputOptions
                      false,    // showMidiOutputSelector
                      true,     // showChannelsAsStereoPairs

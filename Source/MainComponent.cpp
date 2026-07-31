@@ -22,12 +22,23 @@ MainComponent::MainComponent()
     optionsPanel.onReferencePitchChanged = [this] (double referencePitchHz)
     {
         tuningEngine.setReferenceA4 (referencePitchHz);
+        updateReferenceToneFrequency();
     };
+
+    referenceToneBar.setTuning (tuningEngine.getTuning());
+    referenceToneBar.onStringToggled = [this] (int stringIndex)
+    {
+        updateReferenceToneFrequency();
+        referenceTonePlayer.setPlaying (stringIndex >= 0);
+    };
+    addAndMakeVisible (referenceToneBar);
 
     addAndMakeVisible (tunerDisplay);
 
-    setAudioChannels (1, 0);
-    setSize (820, 720);
+    // Two output channels so the reference tone has somewhere to go; the input passthrough
+    // this enables is overwritten every block in getNextAudioBlock.
+    setAudioChannels (1, 2);
+    setSize (820, 780);
 
     startTimerHz (30);
 }
@@ -38,9 +49,10 @@ MainComponent::~MainComponent()
     shutdownAudio();
 }
 
-void MainComponent::prepareToPlay (int /*samplesPerBlockExpected*/, double sampleRate)
+void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRate)
 {
     pitchDetector.prepare (sampleRate, windowSize);
+    referenceTonePlayer.prepare (sampleRate, samplesPerBlockExpected);
 
     ringBuffer.assign ((size_t) windowSize, 0.0f);
     analysisScratch.assign ((size_t) windowSize, 0.0f);
@@ -74,6 +86,13 @@ void MainComponent::appendToCaptureBuffer (const float* samples, int numSamples)
 
 void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& bufferToFill)
 {
+    /*  Ordering here is load-bearing. JUCE copies the live input into the same buffer it will
+        send to the output before this callback runs, so the guitar signal must be captured
+        first, then the buffer overwritten — never mixed into.
+
+        Overwriting does two jobs at once: it stops the raw input passing through to the
+        speakers, and it guarantees the reference tone cannot reach the detector's input.
+    */
     if (bufferToFill.buffer->getNumChannels() > 0)
     {
         const float* inputData = bufferToFill.buffer->getReadPointer (0, bufferToFill.startSample);
@@ -81,6 +100,10 @@ void MainComponent::getNextAudioBlock (const juce::AudioSourceChannelInfo& buffe
     }
 
     bufferToFill.clearActiveBufferRegion();
+
+    referenceTonePlayer.renderNextBlock (*bufferToFill.buffer,
+                                          bufferToFill.startSample,
+                                          bufferToFill.numSamples);
 }
 
 void MainComponent::releaseResources()
@@ -100,8 +123,22 @@ void MainComponent::applySelectedTuning()
 {
     const int index = tuningSelector.getSelectedId() - 1;
 
-    if (juce::isPositiveAndBelow (index, (int) availableTunings.size()))
-        tuningEngine.setTuning (availableTunings[(size_t) index]);
+    if (! juce::isPositiveAndBelow (index, (int) availableTunings.size()))
+        return;
+
+    tuningEngine.setTuning (availableTunings[(size_t) index]);
+    referenceToneBar.setTuning (tuningEngine.getTuning());
+
+    // A sounding tone follows the new tuning rather than being left on the old pitch.
+    updateReferenceToneFrequency();
+}
+
+void MainComponent::updateReferenceToneFrequency()
+{
+    const int activeString = referenceToneBar.getActiveString();
+
+    if (activeString >= 0)
+        referenceTonePlayer.setFrequency (tuningEngine.getStringFrequencyHz (activeString));
 }
 
 void MainComponent::showOptions()
@@ -151,5 +188,9 @@ void MainComponent::resized()
     tuningSelector.setBounds (header.removeFromRight (190).withSizeKeepingCentre (190, 36));
 
     bounds.removeFromTop (Theme::Spacing::sm);
+
+    referenceToneBar.setBounds (bounds.removeFromBottom (76));
+    bounds.removeFromBottom (Theme::Spacing::sm);
+
     tunerDisplay.setBounds (bounds);
 }

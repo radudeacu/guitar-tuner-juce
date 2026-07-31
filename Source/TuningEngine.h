@@ -19,6 +19,11 @@ public:
     void setTuning (Tuning newTuning);
     void setReferenceA4 (double newReferenceHz);
 
+    const Tuning& getTuning() const noexcept;
+
+    /** Target pitch of one string, adjusted for the current reference A4. */
+    double getStringFrequencyHz (int stringIndex) const;
+
     TuningMatchResult evaluate (double detectedFrequencyHz) const;
 
 private:

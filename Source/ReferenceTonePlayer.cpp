@@ -1,24 +1,16 @@
 #include "ReferenceTonePlayer.h"
 
-ReferenceTonePlayer::ReferenceTonePlayer()
+void ReferenceTonePlayer::prepare (double sampleRate, int /*maximumBlockSize*/)
 {
-    // Lookup table rather than a live std::sin call, so rendering stays cheap on the audio thread.
-    oscillator.initialise ([] (float phase) { return std::sin (phase); }, 512);
-}
+    const float startingFrequency = requestedFrequencyHz.load (std::memory_order_relaxed);
 
-void ReferenceTonePlayer::prepare (double sampleRate, int maximumBlockSize)
-{
-    juce::dsp::ProcessSpec spec;
-    spec.sampleRate = sampleRate;
-    spec.maximumBlockSize = (juce::uint32) juce::jmax (1, maximumBlockSize);
-    spec.numChannels = 1;
+    string.prepare (sampleRate);
+    string.setFrequency (startingFrequency);
+    appliedFrequencyHz = startingFrequency;
 
-    oscillator.prepare (spec);
-    oscillator.setFrequency (requestedFrequencyHz.load (std::memory_order_relaxed), true);
-    appliedFrequencyHz = requestedFrequencyHz.load (std::memory_order_relaxed);
-
-    gain.reset (sampleRate, gainRampSeconds);
-    gain.setCurrentAndTargetValue (0.0f);
+    fadeGain.reset (sampleRate, retriggerFadeSeconds);
+    fadeGain.setCurrentAndTargetValue (1.0f);
+    fadingBeforeRetrigger = false;
 }
 
 void ReferenceTonePlayer::setFrequency (double frequencyHz)
@@ -27,9 +19,14 @@ void ReferenceTonePlayer::setFrequency (double frequencyHz)
         requestedFrequencyHz.store ((float) frequencyHz, std::memory_order_relaxed);
 }
 
-void ReferenceTonePlayer::setPlaying (bool shouldPlay)
+void ReferenceTonePlayer::pluck()
 {
-    requestedPlaying.store (shouldPlay, std::memory_order_relaxed);
+    pluckRequested.store (true, std::memory_order_relaxed);
+}
+
+void ReferenceTonePlayer::setLooping (bool shouldLoop)
+{
+    looping.store (shouldLoop, std::memory_order_relaxed);
 }
 
 void ReferenceTonePlayer::applyPendingChanges()
@@ -39,28 +36,49 @@ void ReferenceTonePlayer::applyPendingChanges()
     if (! juce::approximatelyEqual (frequency, appliedFrequencyHz))
     {
         appliedFrequencyHz = frequency;
-
-        // Not forced: the oscillator glides to the new frequency, so switching strings
-        // mid-tone bends rather than clicks.
-        oscillator.setFrequency (frequency);
+        string.setFrequency (frequency);
     }
 
-    gain.setTargetValue (requestedPlaying.load (std::memory_order_relaxed) ? toneAmplitude : 0.0f);
+    if (! pluckRequested.exchange (false, std::memory_order_relaxed))
+        return;
+
+    if (string.isRinging())
+    {
+        // Interrupting a sounding note would step the output to zero, so duck away first.
+        fadeGain.setTargetValue (0.0f);
+        fadingBeforeRetrigger = true;
+    }
+    else
+    {
+        fadeGain.setCurrentAndTargetValue (1.0f);
+        string.pluck();
+    }
 }
 
 void ReferenceTonePlayer::renderNextBlock (juce::AudioBuffer<float>& buffer, int startSample, int numSamples)
 {
     applyPendingChanges();
 
-    // Silent and not ramping — skip the whole block rather than adding zeroes.
-    if (! gain.isSmoothing() && gain.getCurrentValue() <= 0.0f)
-        return;
-
     const int numChannels = buffer.getNumChannels();
 
     for (int i = 0; i < numSamples; ++i)
     {
-        const float sample = oscillator.processSample (0.0f) * gain.getNextValue();
+        if (fadingBeforeRetrigger)
+        {
+            if (fadeGain.getCurrentValue() <= 0.0f)
+            {
+                string.pluck();
+                fadeGain.setCurrentAndTargetValue (1.0f);
+                fadingBeforeRetrigger = false;
+            }
+        }
+        else if (looping.load (std::memory_order_relaxed) && ! string.isRinging())
+        {
+            // The previous note has fully decayed, so the repeat needs no fade.
+            string.pluck();
+        }
+
+        const float sample = string.renderSample() * fadeGain.getNextValue() * outputGain;
 
         for (int channel = 0; channel < numChannels; ++channel)
             buffer.addSample (channel, startSample + i, sample);

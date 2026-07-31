@@ -21,7 +21,8 @@ target_sources(GuitarTuner
         Source/TunerLookAndFeel.cpp
         Source/OptionsPanel.cpp
         Source/ReferenceTonePlayer.cpp
-        Source/ReferenceToneBar.cpp)
+        Source/ReferenceToneBar.cpp
+        Source/PluckedString.cpp)
 
 target_compile_definitions(GuitarTuner
     PRIVATE
@@ -52,6 +53,7 @@ target_sources(TunerTests
     PRIVATE
         Source/PitchDetector.cpp
         Source/ReferenceTonePlayer.cpp
+        Source/PluckedString.cpp
         Tests/TunerTests.cpp)
 
 target_link_libraries(TunerTests

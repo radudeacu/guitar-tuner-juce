@@ -1,5 +1,6 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 #include "MainComponent.h"
+#include "TunerLookAndFeel.h"
 
 class GuitarTunerApplication final : public juce::JUCEApplication
 {
@@ -12,12 +13,15 @@ public:
 
     void initialise (const juce::String&) override
     {
+        juce::Desktop::getInstance().setDefaultLookAndFeel (&lookAndFeel);
         mainWindow.reset (new MainWindow (getApplicationName()));
     }
 
     void shutdown() override
     {
+        // Windows must go first — they reference the look and feel while being torn down.
         mainWindow = nullptr;
+        juce::Desktop::getInstance().setDefaultLookAndFeel (nullptr);
     }
 
     void systemRequestedQuit() override
@@ -48,6 +52,8 @@ public:
     };
 
 private:
+    // Declared before the window so it outlives anything that might reference it.
+    TunerLookAndFeel lookAndFeel;
     std::unique_ptr<MainWindow> mainWindow;
 };
 

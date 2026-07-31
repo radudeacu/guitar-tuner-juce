@@ -6,7 +6,7 @@
 struct TuningString
 {
     juce::String noteName;
-    double frequencyHz; // baked at reference A4 = 440Hz
+    double frequencyHz = 0.0; // baked at reference A4 = 440Hz
 };
 
 class Tuning

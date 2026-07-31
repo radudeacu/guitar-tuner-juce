@@ -23,6 +23,13 @@ TunerLookAndFeel::TunerLookAndFeel()
     setColour (juce::PopupMenu::textColourId,             Theme::Colours::textPrimary);
     setColour (juce::PopupMenu::highlightedBackgroundColourId, Theme::Colours::auroraIndigo.withAlpha (0.35f));
 
+    setColour (juce::Slider::backgroundColourId,          juce::Colours::white.withAlpha (0.10f));
+    setColour (juce::Slider::trackColourId,               Theme::Colours::auroraTeal.withAlpha (0.65f));
+    setColour (juce::Slider::thumbColourId,               Theme::Colours::inTune);
+    setColour (juce::Slider::textBoxTextColourId,         Theme::Colours::textPrimary);
+    setColour (juce::Slider::textBoxBackgroundColourId,   juce::Colours::transparentBlack);
+    setColour (juce::Slider::textBoxOutlineColourId,      Theme::Colours::glassBorder);
+
     setColour (juce::ToggleButton::textColourId,          Theme::Colours::textSecondary);
     setColour (juce::ToggleButton::tickColourId,          Theme::Colours::inTune);
     setColour (juce::ToggleButton::tickDisabledColourId,  Theme::Colours::glassBorder);

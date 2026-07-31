@@ -18,7 +18,8 @@ target_sources(GuitarTuner
         Source/NeedleMeterComponent.cpp
         Source/TunerDisplayComponent.cpp
         Source/GlassStyle.cpp
-        Source/TunerLookAndFeel.cpp)
+        Source/TunerLookAndFeel.cpp
+        Source/OptionsPanel.cpp)
 
 target_compile_definitions(GuitarTuner
     PRIVATE
@@ -69,6 +70,7 @@ target_sources(DesignPreview
         Source/TunerLookAndFeel.cpp
         Source/NeedleMeterComponent.cpp
         Source/TunerDisplayComponent.cpp
+        Source/OptionsPanel.cpp
         Source/Tuning.cpp
         Source/TuningPresets.cpp
         Source/TuningEngine.cpp)
@@ -80,7 +82,7 @@ target_compile_definitions(DesignPreview
 
 target_link_libraries(DesignPreview
     PRIVATE
-        juce::juce_gui_basics
+        juce::juce_audio_utils
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags)

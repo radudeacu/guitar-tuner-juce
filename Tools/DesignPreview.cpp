@@ -8,6 +8,7 @@
 #include <juce_gui_basics/juce_gui_basics.h>
 
 #include "../Source/GlassStyle.h"
+#include "../Source/OptionsPanel.h"
 #include "../Source/Theme.h"
 #include "../Source/TunerDisplayComponent.h"
 #include "../Source/TunerLookAndFeel.h"
@@ -41,6 +42,21 @@ namespace
         g.setColour (Theme::Colours::textSecondary);
         g.setFont (Theme::labelFont (14.0f));
         g.drawText (label, area, juce::Justification::centredLeft, false);
+    }
+
+    void writePng (const juce::Image& image, const juce::String& fileName)
+    {
+        const auto file = juce::File::getSpecialLocation (juce::File::currentExecutableFile)
+                              .getSiblingFile (fileName);
+        file.deleteFile();
+
+        if (auto stream = file.createOutputStream())
+        {
+            juce::PNGImageFormat png;
+            png.writeImageToStream (image, *stream);
+        }
+
+        std::printf ("Wrote %s\n", file.getFullPathName().toRawUTF8());
     }
 }
 
@@ -101,19 +117,25 @@ int main()
         }
     }
 
-    const auto outputFile = juce::File::getSpecialLocation (juce::File::currentExecutableFile)
-                                .getSiblingFile ("design-preview.png");
+    writePng (image, "design-preview.png");
 
-    outputFile.deleteFile();
-
-    if (auto stream = outputFile.createOutputStream())
+    // The options panel is rendered separately. Its device manager is deliberately left
+    // uninitialised — this only needs to verify layout, not enumerate real hardware.
     {
-        juce::PNGImageFormat png;
-        png.writeImageToStream (image, *stream);
+        juce::AudioDeviceManager deviceManager;
+        OptionsPanel optionsPanel (deviceManager);
+        optionsPanel.setVisible (true);
+
+        juce::Image optionsImage (juce::Image::ARGB, optionsPanel.getWidth(), optionsPanel.getHeight(), true);
+
+        {
+            juce::Graphics optionsGraphics (optionsImage);
+            optionsPanel.paintEntireComponent (optionsGraphics, false);
+        }
+
+        writePng (optionsImage, "options-preview.png");
     }
 
     juce::Desktop::getInstance().setDefaultLookAndFeel (nullptr);
-
-    std::printf ("Wrote %s\n", outputFile.getFullPathName().toRawUTF8());
     return 0;
 }

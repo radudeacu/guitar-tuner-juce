@@ -1,20 +1,28 @@
 #include "MainComponent.h"
 #include "GlassStyle.h"
 #include "Theme.h"
+#include "TuningPresets.h"
 
 MainComponent::MainComponent()
-    : audioSettings (deviceManager,
-                     1, 1,     // min/max audio input channels
-                     0, 0,     // min/max audio output channels
-                     false,    // showMidiInputOptions
-                     false,    // showMidiOutputSelector
-                     true,     // showChannelsAsStereoPairs
-                     false)    // hideAdvancedOptionsWithButton
+    : availableTunings (TuningPresets::all()),
+      optionsPanel (deviceManager)
 {
     setOpaque (true);
 
     addAndMakeVisible (optionsButton);
-    optionsButton.onClick = [this] { showAudioSettings(); };
+    optionsButton.onClick = [this] { showOptions(); };
+
+    for (int i = 0; i < (int) availableTunings.size(); ++i)
+        tuningSelector.addItem (availableTunings[(size_t) i].getName(), i + 1);
+
+    tuningSelector.setSelectedId (1, juce::dontSendNotification);
+    tuningSelector.onChange = [this] { applySelectedTuning(); };
+    addAndMakeVisible (tuningSelector);
+
+    optionsPanel.onReferencePitchChanged = [this] (double referencePitchHz)
+    {
+        tuningEngine.setReferenceA4 (referencePitchHz);
+    };
 
     addAndMakeVisible (tunerDisplay);
 
@@ -88,13 +96,19 @@ void MainComponent::timerCallback()
     tunerDisplay.setResult (match, frequencyHz, hasSignal);
 }
 
-void MainComponent::showAudioSettings()
+void MainComponent::applySelectedTuning()
 {
-    audioSettings.setSize (500, 450);
+    const int index = tuningSelector.getSelectedId() - 1;
 
+    if (juce::isPositiveAndBelow (index, (int) availableTunings.size()))
+        tuningEngine.setTuning (availableTunings[(size_t) index]);
+}
+
+void MainComponent::showOptions()
+{
     juce::DialogWindow::LaunchOptions options;
-    options.content.setNonOwned (&audioSettings);
-    options.dialogTitle = "Audio Settings";
+    options.content.setNonOwned (&optionsPanel);
+    options.dialogTitle = "Options";
     options.dialogBackgroundColour = getLookAndFeel().findColour (juce::ResizableWindow::backgroundColourId);
     options.escapeKeyTriggersCloseButton = true;
     options.useNativeTitleBar = true;
@@ -134,6 +148,7 @@ void MainComponent::resized()
 
     auto header = bounds.removeFromTop (44);
     optionsButton.setBounds (header.removeFromLeft (108).withSizeKeepingCentre (108, 36));
+    tuningSelector.setBounds (header.removeFromRight (190).withSizeKeepingCentre (190, 36));
 
     bounds.removeFromTop (Theme::Spacing::sm);
     tunerDisplay.setBounds (bounds);

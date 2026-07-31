@@ -5,6 +5,7 @@
 #include <atomic>
 #include <vector>
 
+#include "OptionsPanel.h"
 #include "PitchDetector.h"
 #include "TunerDisplayComponent.h"
 #include "TuningEngine.h"
@@ -25,7 +26,8 @@ public:
 private:
     void timerCallback() override;
     void appendToCaptureBuffer (const float* samples, int numSamples); // audio thread only
-    void showAudioSettings();
+    void showOptions();
+    void applySelectedTuning();
     void refreshBackdropCacheIfNeeded();
 
     static constexpr int windowSize = 2048;
@@ -47,7 +49,12 @@ private:
     // so the gradient/blob composition is rendered once and blitted rather than recomputed.
     juce::Image backdropCache;
 
+    // Read only from timerCallback and UI callbacks — both on the message thread — so the
+    // engine needs no synchronisation despite the detector running on the audio thread.
+    std::vector<Tuning> availableTunings;
+
     juce::TextButton optionsButton { "Options" };
-    juce::AudioDeviceSelectorComponent audioSettings;
+    juce::ComboBox tuningSelector;
+    OptionsPanel optionsPanel;
     TunerDisplayComponent tunerDisplay;
 };

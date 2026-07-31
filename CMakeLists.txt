@@ -16,7 +16,9 @@ target_sources(GuitarTuner
         Source/TuningPresets.cpp
         Source/TuningEngine.cpp
         Source/NeedleMeterComponent.cpp
-        Source/TunerDisplayComponent.cpp)
+        Source/TunerDisplayComponent.cpp
+        Source/GlassStyle.cpp
+        Source/TunerLookAndFeel.cpp)
 
 target_compile_definitions(GuitarTuner
     PRIVATE
@@ -51,6 +53,34 @@ target_sources(PitchDetectorTests
 target_link_libraries(PitchDetectorTests
     PRIVATE
         juce::juce_core
+    PUBLIC
+        juce::juce_recommended_config_flags
+        juce::juce_recommended_warning_flags)
+
+# --- Development tool: renders the tuner display in several tuning states to a PNG so the
+#     visual design can be reviewed without a guitar plugged in. Not part of the shipped app. ---
+juce_add_console_app(DesignPreview
+    PRODUCT_NAME "DesignPreview")
+
+target_sources(DesignPreview
+    PRIVATE
+        Tools/DesignPreview.cpp
+        Source/GlassStyle.cpp
+        Source/TunerLookAndFeel.cpp
+        Source/NeedleMeterComponent.cpp
+        Source/TunerDisplayComponent.cpp
+        Source/Tuning.cpp
+        Source/TuningPresets.cpp
+        Source/TuningEngine.cpp)
+
+target_compile_definitions(DesignPreview
+    PRIVATE
+        JUCE_WEB_BROWSER=0
+        JUCE_USE_CURL=0)
+
+target_link_libraries(DesignPreview
+    PRIVATE
+        juce::juce_gui_basics
     PUBLIC
         juce::juce_recommended_config_flags
         juce::juce_recommended_warning_flags)

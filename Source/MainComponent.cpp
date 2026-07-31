@@ -1,4 +1,6 @@
 #include "MainComponent.h"
+#include "GlassStyle.h"
+#include "Theme.h"
 
 MainComponent::MainComponent()
     : audioSettings (deviceManager,
@@ -9,13 +11,15 @@ MainComponent::MainComponent()
                      true,     // showChannelsAsStereoPairs
                      false)    // hideAdvancedOptionsWithButton
 {
+    setOpaque (true);
+
     addAndMakeVisible (optionsButton);
     optionsButton.onClick = [this] { showAudioSettings(); };
 
     addAndMakeVisible (tunerDisplay);
 
     setAudioChannels (1, 0);
-    setSize (800, 700);
+    setSize (820, 720);
 
     startTimerHz (30);
 }
@@ -99,10 +103,38 @@ void MainComponent::showAudioSettings()
     options.launchAsync();
 }
 
+void MainComponent::refreshBackdropCacheIfNeeded()
+{
+    if (backdropCache.isValid()
+        && backdropCache.getWidth() == getWidth()
+        && backdropCache.getHeight() == getHeight())
+        return;
+
+    if (getWidth() <= 0 || getHeight() <= 0)
+        return;
+
+    backdropCache = juce::Image (juce::Image::ARGB, getWidth(), getHeight(), false);
+    juce::Graphics cacheGraphics (backdropCache);
+    GlassStyle::paintBackdrop (cacheGraphics, getLocalBounds().toFloat());
+}
+
+void MainComponent::paint (juce::Graphics& g)
+{
+    refreshBackdropCacheIfNeeded();
+
+    if (backdropCache.isValid())
+        g.drawImageAt (backdropCache, 0, 0);
+}
+
 void MainComponent::resized()
 {
-    auto bounds = getLocalBounds();
-    auto headerBounds = bounds.removeFromTop (40);
-    optionsButton.setBounds (headerBounds.removeFromLeft (100).reduced (5));
+    backdropCache = {};
+
+    auto bounds = getLocalBounds().reduced (Theme::Spacing::md);
+
+    auto header = bounds.removeFromTop (44);
+    optionsButton.setBounds (header.removeFromLeft (108).withSizeKeepingCentre (108, 36));
+
+    bounds.removeFromTop (Theme::Spacing::sm);
     tunerDisplay.setBounds (bounds);
 }

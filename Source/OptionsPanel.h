@@ -17,6 +17,9 @@ public:
     /** Called on the message thread whenever the user moves the concert pitch control. */
     std::function<void (double)> onReferencePitchChanged;
 
+    /** Restores a saved value without reporting it back as a user change. */
+    void setReferencePitchHz (double frequencyHz);
+
     void paint (juce::Graphics& g) override;
     void resized() override;
 

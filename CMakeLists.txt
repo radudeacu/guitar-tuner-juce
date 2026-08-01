@@ -22,7 +22,8 @@ target_sources(GuitarTuner
         Source/OptionsPanel.cpp
         Source/ReferenceTonePlayer.cpp
         Source/ReferenceToneBar.cpp
-        Source/PluckedString.cpp)
+        Source/PluckedString.cpp
+        Source/TunerSettings.cpp)
 
 target_compile_definitions(GuitarTuner
     PRIVATE

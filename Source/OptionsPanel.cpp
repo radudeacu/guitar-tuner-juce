@@ -37,6 +37,11 @@ OptionsPanel::OptionsPanel (juce::AudioDeviceManager& deviceManagerToUse)
     setSize (540, 540);
 }
 
+void OptionsPanel::setReferencePitchHz (double frequencyHz)
+{
+    referencePitchSlider.setValue (frequencyHz, juce::dontSendNotification);
+}
+
 void OptionsPanel::paint (juce::Graphics& g)
 {
     GlassStyle::paintBackdrop (g, getLocalBounds().toFloat());

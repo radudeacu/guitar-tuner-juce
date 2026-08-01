@@ -15,15 +15,21 @@ MainComponent::MainComponent()
     for (int i = 0; i < (int) availableTunings.size(); ++i)
         tuningSelector.addItem (availableTunings[(size_t) i].getName(), i + 1);
 
-    tuningSelector.setSelectedId (1, juce::dontSendNotification);
     tuningSelector.onChange = [this] { applySelectedTuning(); };
     addAndMakeVisible (tuningSelector);
+
+    const double savedReferencePitchHz = settings.getReferencePitchHz();
+    tuningEngine.setReferenceA4 (savedReferencePitchHz);
+    optionsPanel.setReferencePitchHz (savedReferencePitchHz);
 
     optionsPanel.onReferencePitchChanged = [this] (double referencePitchHz)
     {
         tuningEngine.setReferenceA4 (referencePitchHz);
         updateReferenceToneFrequency();
+        settings.setReferencePitchHz (referencePitchHz);
     };
+
+    restoreSavedTuning();
 
     referenceToneBar.setTuning (tuningEngine.getTuning());
 
@@ -44,7 +50,12 @@ MainComponent::MainComponent()
 
     // Two output channels so the reference tone has somewhere to go; the input passthrough
     // this enables is overwritten every block in getNextAudioBlock.
-    setAudioChannels (1, 2);
+    const auto savedDeviceState = settings.getAudioDeviceState();
+    setAudioChannels (1, 2, savedDeviceState.get());
+
+    // Registered after the device is open so opening it does not itself trigger a save.
+    deviceManager.addChangeListener (this);
+
     setSize (820, 780);
 
     startTimerHz (30);
@@ -53,7 +64,20 @@ MainComponent::MainComponent()
 MainComponent::~MainComponent()
 {
     stopTimer();
+    deviceManager.removeChangeListener (this);
+
+    // The device state has to be read while the device is still open.
+    settings.setAudioDeviceState (deviceManager.createStateXml().get());
+    settings.flush();
+
     shutdownAudio();
+}
+
+void MainComponent::changeListenerCallback (juce::ChangeBroadcaster* source)
+{
+    // Saving on every device change means a crash or forced quit cannot lose the selection.
+    if (source == &deviceManager)
+        settings.setAudioDeviceState (deviceManager.createStateXml().get());
 }
 
 void MainComponent::prepareToPlay (int samplesPerBlockExpected, double sampleRate)
@@ -126,6 +150,21 @@ void MainComponent::timerCallback()
     tunerDisplay.setResult (match, frequencyHz, hasSignal);
 }
 
+void MainComponent::restoreSavedTuning()
+{
+    const auto savedName = settings.getTuningName();
+    int idToSelect = 1;
+
+    // Matched by name rather than index so reordering or adding presets cannot silently
+    // restore the wrong tuning.
+    for (int i = 0; i < (int) availableTunings.size(); ++i)
+        if (availableTunings[(size_t) i].getName() == savedName)
+            idToSelect = i + 1;
+
+    tuningSelector.setSelectedId (idToSelect, juce::dontSendNotification);
+    applySelectedTuning();
+}
+
 void MainComponent::applySelectedTuning()
 {
     const int index = tuningSelector.getSelectedId() - 1;
@@ -135,6 +174,7 @@ void MainComponent::applySelectedTuning()
 
     tuningEngine.setTuning (availableTunings[(size_t) index]);
     referenceToneBar.setTuning (tuningEngine.getTuning());
+    settings.setTuningName (tuningEngine.getTuning().getName());
 
     // A sounding tone follows the new tuning rather than being left on the old pitch.
     updateReferenceToneFrequency();

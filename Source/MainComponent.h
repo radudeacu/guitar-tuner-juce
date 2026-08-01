@@ -10,9 +10,12 @@
 #include "ReferenceToneBar.h"
 #include "ReferenceTonePlayer.h"
 #include "TunerDisplayComponent.h"
+#include "TunerSettings.h"
 #include "TuningEngine.h"
 
-class MainComponent final : public juce::AudioAppComponent, private juce::Timer
+class MainComponent final : public juce::AudioAppComponent,
+                            private juce::Timer,
+                            private juce::ChangeListener
 {
 public:
     MainComponent();
@@ -27,9 +30,11 @@ public:
 
 private:
     void timerCallback() override;
+    void changeListenerCallback (juce::ChangeBroadcaster* source) override;
     void appendToCaptureBuffer (const float* samples, int numSamples); // audio thread only
     void showOptions();
     void applySelectedTuning();
+    void restoreSavedTuning();
     void updateReferenceToneFrequency();
     void refreshBackdropCacheIfNeeded();
 
@@ -52,6 +57,9 @@ private:
     // The translucent card forces the backdrop underneath it to repaint on every timer tick,
     // so the gradient/blob composition is rendered once and blitted rather than recomputed.
     juce::Image backdropCache;
+
+    // Declared first so it outlives everything that writes to it during teardown.
+    TunerSettings settings;
 
     // Read only from timerCallback and UI callbacks — both on the message thread — so the
     // engine needs no synchronisation despite the detector running on the audio thread.

@@ -1,7 +1,8 @@
 # Guitar Tuner (JUCE)
 
 A standalone Windows guitar tuner built with JUCE. See [prd.md](prd.md) for the feature spec and [CLAUDE.md](CLAUDE.md) for architecture/coding conventions.
-<img width="32" height="32" alt="icon" src="https://github.com/user-attachments/assets/01190320-0ac4-440a-bce7-1ebcba285386" />
+<br>
+<img width="64" height="64" alt="icon" src="https://github.com/user-attachments/assets/01190320-0ac4-440a-bce7-1ebcba285386" />
 
 ## Building
 

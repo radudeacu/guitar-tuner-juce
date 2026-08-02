@@ -5,7 +5,9 @@ project(GUITAR_TUNER VERSION 0.0.1)
 add_subdirectory(JUCE)
 
 juce_add_gui_app(GuitarTuner
-    PRODUCT_NAME "Guitar Tuner")
+    PRODUCT_NAME "Guitar Tuner"
+    ICON_BIG "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon.png"
+    ICON_SMALL "${CMAKE_CURRENT_SOURCE_DIR}/Resources/icon_small.png")
 
 target_sources(GuitarTuner
     PRIVATE
